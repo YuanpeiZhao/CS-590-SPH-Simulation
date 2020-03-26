@@ -2,25 +2,45 @@
 
 using namespace std;
 
-void initParticles(GLuint &ssb, GLuint pNumber, int r) {
 
-	Particle* p = new Particle[pNumber];
-	
-	for (int i = 0; i < pNumber; i++) {
-		glm::vec3 pos = glm::vec3(float(rand()) / RAND_MAX * 2 * r - r, float(rand()) / RAND_MAX * 2 * r - r, float(rand()) / RAND_MAX * 2 * r - r);
+
+void initParticles(GLuint &ssb, GLuint pNumber, int r, bool* voxels) {
+
+	readVoxelToParticle(voxels);
+
+	int vNumber = voxelDimensionX* voxelDimensionY* voxelDimensionZ;
+	Particle* p = new Particle[vNumber + pNumber];
+
+	for (int i = 0; i < vNumber; i++) {
+
+		int x = i / (voxelDimensionY * voxelDimensionZ);
+		int y = (i % (voxelDimensionY * voxelDimensionZ)) / voxelDimensionZ;
+		int z = i % voxelDimensionZ;
+
+		glm::vec3 pos = getPositionInVoxel(x, y, z);
 		p[i].currPos = glm::vec4(pos, 1.f);
 		p[i].prevPos = glm::vec4(pos, 1.f);
 		p[i].vel = glm::vec4(0);
 		p[i].acc = glm::vec4(0);
 		p[i].para = glm::vec4(0);
-		if (glm::distance(glm::vec3(0.0f), pos) <= r / 1.5f)
-			p[i].matProp[0] = 0.0f;
-		else p[i].matProp[0] = 1.0f;
+
+		if(voxels[i]) p[i].matProp[0] = 0.0f;
+		else p[i].matProp[0] = -1.0f;
+	}
+	
+	for (int i = vNumber; i < vNumber + pNumber; i++) {
+		glm::vec3 pos = glm::vec3(float(rand()) / RAND_MAX * 2 * r - r, float(rand()) / RAND_MAX * 2 * r + r, float(rand()) / RAND_MAX * 2 * r - r);
+		p[i].currPos = glm::vec4(pos, 1.f);
+		p[i].prevPos = glm::vec4(pos, 1.f);
+		p[i].vel = glm::vec4(0);
+		p[i].acc = glm::vec4(0);
+		p[i].para = glm::vec4(0);
+		p[i].matProp[0] = 1.0f;
 	}
 
 	glGenBuffers(1, &ssb);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssb);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, pNumber * sizeof(Particle), p, GL_STATIC_DRAW);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, (vNumber + pNumber) * sizeof(Particle), p, GL_STATIC_DRAW);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssb);
 
 	delete p;
@@ -42,10 +62,12 @@ void initVAO(GLuint &vao, GLuint &ppvao, GLuint &ssb) {
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 	glEnableVertexAttribArray(2);
+	glEnableVertexAttribArray(3);
 	glBindBuffer(GL_ARRAY_BUFFER, ssb);
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Particle), (GLvoid*)0);
 	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(Particle), (GLvoid*)(18 * sizeof(float)));
 	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Particle), (GLvoid*)(20 * sizeof(float)));
+	glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(Particle), (GLvoid*)(24 * sizeof(float)));
 	glBindVertexArray(0);
 
 	// Initialize post-processing buffer

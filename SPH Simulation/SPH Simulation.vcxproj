@@ -140,6 +140,7 @@
     <ClCompile Include="src\glad.c" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Particle.cpp" />
+    <ClCompile Include="src\Voxel.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imgui\imconfig.h" />
@@ -150,6 +151,7 @@
     <ClInclude Include="imgui\imstb_textedit.h" />
     <ClInclude Include="imgui\imstb_truetype.h" />
     <ClInclude Include="include\Particle.h" />
+    <ClInclude Include="include\Voxel.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\cs.glsl" />

@@ -5,10 +5,12 @@ layout(triangle_strip, max_vertices = 4) out;
 
 in float vNeighbor[];
 in vec3 vDeltaCs[];
+in float vType[];
 
 out vec2 ex_TexCoor;
 out float ex_Neighbor;
 out vec3 ex_DeltaCs;
+out float ex_Type;
 
 uniform mat4  viewMatrix;
 uniform mat4  projMatrix;
@@ -27,6 +29,7 @@ void main(void){
 
   ex_Neighbor = vNeighbor[0];
   ex_DeltaCs = vDeltaCs[0];
+  ex_Type = vType[0];
 
   gl_Position = particlePos-rightVector - upVector;
   ex_TexCoor = vec2(0,0);

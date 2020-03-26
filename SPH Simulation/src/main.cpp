@@ -11,6 +11,8 @@ GLuint vao = -1;		// Vertex Array Buffer
 GLuint ppvao = -1;		// Post Processing VAO
 GLuint depthMap = -1;
 GLuint depthMapFBO = -1;
+GLuint voxelBuffer = -1;
+GLuint TBO = -1;
 
 GLuint shaderProgram = -1;
 GLuint computeProgram = -1;
@@ -34,6 +36,7 @@ void postProcessing();
 int windowWidth = 1280;
 int windowHeight = 720;
 
+GLuint voxelNumber = voxelDimensionX * voxelDimensionY * voxelDimensionZ;
 GLuint particleNumber = 20000;
 int particleRadius = 3;
 float particleSize = 0.01f;
@@ -43,12 +46,38 @@ float tmpDeltaTime = 0.0f;
 
 bool Imgui = true;
 bool contour = true;
+bool showParticles = true;
 bool spacePressed = false;
 
 float cameraFOV = 45.0f;
 float nearPlane = 1.0f;
 float farPlane = 1000.0f;
 glm::vec4 camPos;
+
+bool voxels[voxelDimensionX][voxelDimensionY][voxelDimensionZ] = {false};
+
+void initVoxelBuffer() {
+
+	glGenBuffers(1, &voxelBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, voxelBuffer);
+	glBufferData(GL_ARRAY_BUFFER, voxelNumber * sizeof(vec4), NULL, GL_DYNAMIC_COPY);
+
+	vec4* initV = (vec4*)glMapBufferRange(GL_ARRAY_BUFFER,
+		0,
+		voxelNumber * sizeof(vec4),
+		GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+
+	for (int i = 0; i < voxelNumber; i++)
+	{
+		initV[i] = vec4(1.0f);
+	}
+	glUnmapBuffer(GL_ARRAY_BUFFER);
+
+	glGenTextures(1, &TBO);
+
+	glBindTexture(GL_TEXTURE_BUFFER, TBO);
+	glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, voxelBuffer);
+}
 
 void initOpenGL() {
 
@@ -85,12 +114,15 @@ void initOpenGL() {
 	std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
 	std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
-	
+	// Write default voxel data to file
+	writeSphereToFile();
+
 	// Initialize particles
 
-	initParticles(ssb, particleNumber, particleRadius);
+	initParticles(ssb, particleNumber, particleRadius, &voxels[0][0][0]);
 	initImGUI(window);
 	initVAO(vao, ppvao, ssb);
+	initVoxelBuffer();
 	
 	shaderProgram = initShader(shaderProgram, vertexShader.c_str(), GL_VERTEX_SHADER);
 	shaderProgram = initShader(shaderProgram, geometryShader.c_str(), GL_GEOMETRY_SHADER);
@@ -108,6 +140,28 @@ void initOpenGL() {
 	if (maxParticles_loc != -1)
 	{
 		glUniform1ui(maxParticles_loc, particleNumber);
+	}
+
+	int VoxelX_loc = glGetUniformLocation(computeProgram, "voxelX");
+	if (VoxelX_loc != -1)
+	{
+		glUniform1i(VoxelX_loc, voxelDimensionX);
+	}
+	int VoxelY_loc = glGetUniformLocation(computeProgram, "voxelY");
+	if (VoxelY_loc != -1)
+	{
+		glUniform1i(VoxelY_loc, voxelDimensionY);
+	}
+	int VoxelZ_loc = glGetUniformLocation(computeProgram, "voxelZ");
+	if (VoxelZ_loc != -1)
+	{
+		glUniform1i(VoxelZ_loc, voxelDimensionZ);
+	}
+
+	int maxVoxels_loc = glGetUniformLocation(computeProgram, "maxVoxels");
+	if (maxVoxels_loc != -1)
+	{
+		glUniform1ui(maxVoxels_loc, voxelNumber);
 	}
 
 	glUseProgram(shaderProgram);
@@ -148,6 +202,7 @@ void draw_gui()
 	ImGui::TextUnformatted("Use space to pause / resume");
 
 	ImGui::Checkbox("contour", &contour);
+	ImGui::Checkbox("show SPH particles", &showParticles);
 
 	ImGui::End();
 
@@ -158,7 +213,7 @@ void render() {
 
 	glBindVertexArray(vao);
 
-	// Pass 1
+	// Pass 0
 	glUseProgram(computeProgram);
 	int frameTimeDiff_loc = glGetUniformLocation(computeProgram, "frameTimeDiff");
 	if (frameTimeDiff_loc != -1)
@@ -169,10 +224,29 @@ void render() {
 	int pass_loc = glGetUniformLocation(computeProgram, "pass");
 	if (pass_loc != -1)
 	{
+		glUniform1i(pass_loc, 0);
+	}
+
+	glBindImageTexture(0, TBO, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+
+	glDispatchCompute(((voxelNumber + particleNumber) / WORK_GROUP_SIZE) + 1, 1, 1);
+	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
+
+	// Pass 1
+	glUseProgram(computeProgram);
+	frameTimeDiff_loc = glGetUniformLocation(computeProgram, "frameTimeDiff");
+	if (frameTimeDiff_loc != -1)
+	{
+		glUniform1f(frameTimeDiff_loc, deltaTime);
+	}
+
+	pass_loc = glGetUniformLocation(computeProgram, "pass");
+	if (pass_loc != -1)
+	{
 		glUniform1i(pass_loc, 1);
 	}
 
-	glDispatchCompute((particleNumber / WORK_GROUP_SIZE) + 1, 1, 1);
+	glDispatchCompute(((voxelNumber + particleNumber) / WORK_GROUP_SIZE) + 1, 1, 1);
 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
 
 	// Pass 2
@@ -187,7 +261,7 @@ void render() {
 	{
 		glUniform1i(pass_loc, 2);
 	}
-	glDispatchCompute((particleNumber / WORK_GROUP_SIZE) + 1, 1, 1);
+	glDispatchCompute(((voxelNumber + particleNumber) / WORK_GROUP_SIZE) + 1, 1, 1);
 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
 
 	// Pass 3
@@ -202,7 +276,7 @@ void render() {
 	{
 		glUniform1i(pass_loc, 3);
 	}
-	glDispatchCompute((particleNumber / WORK_GROUP_SIZE) + 1, 1, 1);
+	glDispatchCompute(((voxelNumber + particleNumber) / WORK_GROUP_SIZE) + 1, 1, 1);
 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
 	
 	double time = glfwGetTime();
@@ -235,7 +309,13 @@ void render() {
 		glUniform1f(time_loc, static_cast<GLfloat>(time));
 	}
 
-	glDrawArrays(GL_POINTS, 0, particleNumber);
+	int showParticles_loc = glGetUniformLocation(shaderProgram, "showParticles");
+	if (showParticles_loc != -1)
+	{
+		glUniform1i(showParticles_loc, showParticles);
+	}
+
+	glDrawArrays(GL_POINTS, 0, voxelNumber + particleNumber);
 
 	draw_gui();
 
@@ -323,7 +403,13 @@ void drawDepthMap(double time)
 		glUniform1f(time_loc, static_cast<GLfloat>(time));
 	}
 
-	glDrawArrays(GL_POINTS, 0, particleNumber);
+	int showParticles_loc = glGetUniformLocation(shaderProgram, "showParticles");
+	if (showParticles_loc != -1)
+	{
+		glUniform1i(showParticles_loc, showParticles);
+	}
+
+	glDrawArrays(GL_POINTS, 0, voxelNumber + particleNumber);
 
 	glUseProgram(0);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);

@@ -15,6 +15,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include "imgui_impl_glfw_gl3.h"
 
+#include "Voxel.h"
+
 struct Particle {
 	glm::vec4 currPos;
 	glm::vec4 prevPos;
@@ -25,7 +27,7 @@ struct Particle {
 	glm::vec4 matProp;
 };
 
-void initParticles(GLuint& ssb, GLuint pNumber, int r);
+void initParticles(GLuint& ssb, GLuint pNumber, int r, bool* voxels);
 void initImGUI(GLFWwindow* window);
 void initVAO(GLuint& vao, GLuint& ppvao, GLuint& ssb);
 GLuint initShader(GLuint& program, const char* shaderFile, GLenum shaderType);

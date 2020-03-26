@@ -3,10 +3,12 @@
 in vec2 ex_TexCoor;
 in float ex_Neighbor;
 in vec3 ex_DeltaCs;
+in float ex_Type;
 
 out vec4 color;
 
 uniform float time;
+uniform bool showParticles;
 
 vec3 CalcParaLight(vec3 lightDir)
 {
@@ -20,10 +22,20 @@ vec3 CalcParaLight(vec3 lightDir)
 }
 
 void main(void){
- 
+	
+	if(ex_Type < 0.0f) discard;
+
 	if (distance(ex_TexCoor, vec2(0.5, 0.5)) > 0.5) {
         discard;
     }
+
+	if(ex_Type < 0.5f) {
+		color = vec4(ex_DeltaCs, 1.0f);
+		//if(color.g > 0.5f) discard;
+		return;
+	}
+	
+	if(showParticles == false) discard;
 
 	if(ex_Neighbor < 6)
 	{
