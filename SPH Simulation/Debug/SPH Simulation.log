@@ -1,4 +1,0 @@
-﻿  main.cpp
-D:\Git\CS-590-SPH-Simulation\SPH Simulation\src\main.cpp(70,20): warning C4018: '<': signed/unsigned mismatch
-D:\Git\CS-590-SPH-Simulation\SPH Simulation\src\main.cpp(288,33): warning C4305: 'argument': truncation from 'double' to 'GLfloat'
-  SPH Simulation.vcxproj -> D:\Git\CS-590-SPH-Simulation\SPH Simulation\Debug\SPH Simulation.exe
