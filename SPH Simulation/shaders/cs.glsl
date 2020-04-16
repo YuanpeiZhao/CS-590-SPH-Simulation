@@ -8,9 +8,11 @@
 #define PARTICLE_MASS 65
 #define SMOOTHING_LENGTH (24 * PARTICLE_RADIUS)
 #define PARTICLE_VISCOSITY 250.f
-#define GRAVITY_FORCE vec3(0, -10, 0)
+#define GRAVITY_FORCE rotated(vec3(0, 0, -5), -angle)
 #define PARTICLE_STIFFNESS 200
 #define WALL_DAMPING 0.8f
+
+#define PI 3.14159265358979f
 
 struct particle{
   vec4  currPos;
@@ -33,6 +35,12 @@ uniform uint maxVoxels;
 uniform int voxelX;
 uniform int voxelY;
 uniform int voxelZ;
+uniform float windHeight;
+uniform float windWidth;
+uniform float windOffsetX;
+uniform float windOffsetY;
+
+uniform float angle;
 
 layout (rgba32f, binding = 0) uniform imageBuffer voxelData;	// 0: if has voxel, 1: duration, 2: if is hit
 
@@ -51,6 +59,23 @@ ivec3 convertIndex1DToIndex3D(int index){
 int convertIndex3DToIndex1D(ivec3 index){
 
 	return index.x * voxelY * voxelZ + index.y * voxelZ + index.z;
+}
+
+int countNeighbor(int index){
+
+	ivec3 index3d = convertIndex1DToIndex3D(index);
+	int cnt = 0;
+	for(int i=-1;i<=1;i++){
+		for(int j=-1;j<=1;j++){
+			for(int k = -1;k<=1;k++){
+				if(i != 0 || j != 0 || k != 0){
+					int neighborIndex = convertIndex3DToIndex1D(index3d + ivec3(i, j, k));
+					if(neighborIndex < maxVoxels && p[neighborIndex].matProp[0]+1.0f > 0.1f) cnt ++;
+				}
+			}
+		}
+	}
+	return cnt;
 }
 
 int convertPositionToIndex1D(vec3 pos){
@@ -101,6 +126,11 @@ bool isIsolate(ivec3 index){
 	return cnt <= 2.0f;
 }
 
+vec3 rotated(vec3 pos, float angle){
+	float alpha = angle /180.0f * PI;
+	return vec3(pos.x * cos(alpha) + pos.z * sin(alpha), pos.y, pos.z * cos(alpha) - pos.x * sin(alpha));
+}
+
 void main(){
   uint i = gl_GlobalInvocationID.x;
   
@@ -111,9 +141,12 @@ void main(){
 	{
 		if(i < maxVoxels){
 			
+			p[i].deltaCs.xyz = normal(convertIndex1DToIndex3D(int(i)));
 			vec4 tmp = imageLoad(voxelData, int(i));
-			if(tmp.z >= 0.1f) p[i].deltaCs = vec4(1.0f, 0.0f, 0.0f, 1.0f);
-			else p[i].deltaCs = vec4(1.0f, 1.0f, 0.0f, 1.0f);
+			if(tmp.z >= 0.1f) p[i].deltaCs.z = 1.0f;
+			else p[i].deltaCs.z = 0.0f;
+
+			if(countNeighbor(int(i))<=6) p[i].matProp[0] = -1.0f;
 
 			imageStore(voxelData, int(i), vec4(p[i].matProp[0]+1.0f, tmp.y, 0.0f, tmp.w));
 		}
@@ -186,38 +219,44 @@ void main(){
 		vec3 new_velocity = (p[i].velocity + frameTimeDiff * p[i].acceleration).xyz;
 		vec3 new_position = p[i].currPos.xyz + frameTimeDiff * new_velocity;
 
+		vec3 r_pos = rotated(new_position, angle);
+		vec3 r_vel = rotated(new_velocity, angle);
+
 		// boundary conditions
 		
-		if (new_position.y < -7)
+		if (r_pos.y < -windHeight/2 + windOffsetY)
 		{
-			new_position.y = -7;
-			new_velocity.y *= -1 * WALL_DAMPING;
+			r_pos.y = -windHeight/2 + windOffsetY;
+			r_vel.y *= -1 * WALL_DAMPING;
 		}
-		else if (new_position.y > 10)
+		else if (r_pos.y > windHeight/2 + windOffsetY)
 		{
-			new_position.y = 10;
-			new_velocity.y *= -1 * WALL_DAMPING;
+			r_pos.y = windHeight/2 + windOffsetY;
+			r_vel.y *= -1 * WALL_DAMPING;
 		}
-		if (new_position.x < -3)
+		if (r_pos.x < -windWidth/2 + windOffsetX)
 		{
-			new_position.x = -3;
-			new_velocity.x *= -1 * WALL_DAMPING;
+			r_pos.x = -windWidth/2 + windOffsetX;
+			r_vel.x *= -1 * WALL_DAMPING;
 		}
-		else if (new_position.x > 3)
+		else if (r_pos.x > windWidth/2 + windOffsetX)
 		{
-			new_position.x = 3;
-			new_velocity.x *= -1 * WALL_DAMPING;
+			r_pos.x = windWidth/2 + windOffsetX;
+			r_vel.x *= -1 * WALL_DAMPING;
 		}
-		if (new_position.z < -10)
+		if (r_pos.z < -10)
 		{
-			new_position.z = -10;
-			new_velocity.z *= -1 * WALL_DAMPING;
+			r_pos.z = 10;
+			r_vel = vec3(0.0f, 0.0f, -2.0f);
 		}
-		else if (new_position.z > 4)
+		else if (r_pos.z > 10)
 		{
-			new_position.z = 4;
-			new_velocity.z *= -1 * WALL_DAMPING;
+			r_pos.z = 10;
+			r_vel.z *= -1 * WALL_DAMPING;
 		}
+
+		new_position = rotated(r_pos, -angle);
+		new_velocity = rotated(r_vel, -angle);
 
 		p[i].velocity = vec4(new_velocity, 1.0f);
 		p[i].prevPos = p[i].currPos;
@@ -233,7 +272,7 @@ void main(){
 				p[i].currPos.xyz += frameTimeDiff * p[i].velocity.xyz;
 
 				tmp.z = 1.0f;
-				if(length(p[i].velocity.xyz) >= 2.0f) tmp.y -= length(p[i].velocity.xyz)/ 500.0f;
+				if(length(p[i].velocity.xyz) >= 2.0f) tmp.y -= length(p[i].velocity.xyz)/ 5.0f;
 				if(tmp.y <= 0.0f) p[index].matProp[0] = -1.0f;
 
 				imageStore(voxelData, index, tmp);

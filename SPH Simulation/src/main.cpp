@@ -39,14 +39,22 @@ int windowHeight = 720;
 GLuint voxelNumber = voxelDimensionX * voxelDimensionY * voxelDimensionZ;
 GLuint particleNumber = 20000;
 int particleRadius = 3;
-float particleSize = 0.01f;
+float particleSize = 0.0001f;
 
 float deltaTime = 0.0f;
 float tmpDeltaTime = 0.0f;
+float windAngle = 0.0f;
+float timeScale = 1.0f;
+
+float windOffsetX = 0.0f;
+float windOffsetY = 0.0f;
+float windWidth = 10.0f;
+float windHeight = 10.0f;
 
 bool Imgui = true;
-bool contour = true;
+bool contour = false;
 bool showParticles = true;
+bool showMaterial = true;
 bool spacePressed = false;
 
 float cameraFOV = 45.0f;
@@ -203,6 +211,16 @@ void draw_gui()
 
 	ImGui::Checkbox("contour", &contour);
 	ImGui::Checkbox("show SPH particles", &showParticles);
+	ImGui::Checkbox("show material", &showMaterial);
+	
+	ImGui::SliderFloat("wind speed", &timeScale, 0.1, 4);
+	ImGui::SliderFloat("wind angle", &windAngle, 0, 360);
+
+	ImGui::SliderFloat("wind width", &windWidth, 1, 10);
+	ImGui::SliderFloat("wind height", &windHeight, 1, 10);
+
+	ImGui::SliderFloat("wind offset X", &windOffsetX, -3, 3);
+	ImGui::SliderFloat("wind offset Y", &windOffsetY, -3, 3);
 
 	ImGui::End();
 
@@ -218,13 +236,40 @@ void render() {
 	int frameTimeDiff_loc = glGetUniformLocation(computeProgram, "frameTimeDiff");
 	if (frameTimeDiff_loc != -1)
 	{
-		glUniform1f(frameTimeDiff_loc, deltaTime);
+		glUniform1f(frameTimeDiff_loc, timeScale * deltaTime);
 	}
 
 	int pass_loc = glGetUniformLocation(computeProgram, "pass");
 	if (pass_loc != -1)
 	{
 		glUniform1i(pass_loc, 0);
+	}
+
+	int angle_loc = glGetUniformLocation(computeProgram, "angle");
+	if (angle_loc != -1)
+	{
+		glUniform1f(angle_loc, windAngle);
+	}
+
+	int windOffsetX_loc = glGetUniformLocation(computeProgram, "windOffsetX");
+	if (windOffsetX_loc != -1)
+	{
+		glUniform1f(windOffsetX_loc, windOffsetX);
+	}
+	int windOffsetY_loc = glGetUniformLocation(computeProgram, "windOffsetY");
+	if (windOffsetY_loc != -1)
+	{
+		glUniform1f(windOffsetY_loc, windOffsetY);
+	}
+	int windWidth_loc = glGetUniformLocation(computeProgram, "windWidth");
+	if (windWidth_loc != -1)
+	{
+		glUniform1f(windWidth_loc, windWidth);
+	}
+	int windHeight_loc = glGetUniformLocation(computeProgram, "windHeight");
+	if (windHeight_loc != -1)
+	{
+		glUniform1f(windHeight_loc, windHeight);
 	}
 
 	glBindImageTexture(0, TBO, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
@@ -234,11 +279,6 @@ void render() {
 
 	// Pass 1
 	glUseProgram(computeProgram);
-	frameTimeDiff_loc = glGetUniformLocation(computeProgram, "frameTimeDiff");
-	if (frameTimeDiff_loc != -1)
-	{
-		glUniform1f(frameTimeDiff_loc, deltaTime);
-	}
 
 	pass_loc = glGetUniformLocation(computeProgram, "pass");
 	if (pass_loc != -1)
@@ -251,31 +291,25 @@ void render() {
 
 	// Pass 2
 	glUseProgram(computeProgram);
-	frameTimeDiff_loc = glGetUniformLocation(computeProgram, "frameTimeDiff");
-	if (frameTimeDiff_loc != -1)
-	{
-		glUniform1f(frameTimeDiff_loc, deltaTime);
-	}
+
 	pass_loc = glGetUniformLocation(computeProgram, "pass");
 	if (pass_loc != -1)
 	{
 		glUniform1i(pass_loc, 2);
 	}
+
 	glDispatchCompute(((voxelNumber + particleNumber) / WORK_GROUP_SIZE) + 1, 1, 1);
 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
 
 	// Pass 3
 	glUseProgram(computeProgram);
-	frameTimeDiff_loc = glGetUniformLocation(computeProgram, "frameTimeDiff");
-	if (frameTimeDiff_loc != -1)
-	{
-		glUniform1f(frameTimeDiff_loc, deltaTime);
-	}
+
 	pass_loc = glGetUniformLocation(computeProgram, "pass");
 	if (pass_loc != -1)
 	{
 		glUniform1i(pass_loc, 3);
 	}
+
 	glDispatchCompute(((voxelNumber + particleNumber) / WORK_GROUP_SIZE) + 1, 1, 1);
 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
 	
@@ -313,6 +347,12 @@ void render() {
 	if (showParticles_loc != -1)
 	{
 		glUniform1i(showParticles_loc, showParticles);
+	}
+
+	int showMaterial_loc = glGetUniformLocation(shaderProgram, "showMaterial");
+	if (showMaterial_loc != -1)
+	{
+		glUniform1i(showMaterial_loc, showMaterial);
 	}
 
 	glDrawArrays(GL_POINTS, 0, voxelNumber + particleNumber);

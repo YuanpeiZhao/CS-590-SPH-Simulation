@@ -4,12 +4,12 @@ layout(points) in;
 layout(triangle_strip, max_vertices = 4) out;
 
 in float vNeighbor[];
-in vec3 vDeltaCs[];
+in vec4 vDeltaCs[];
 in float vType[];
 
 out vec2 ex_TexCoor;
 out float ex_Neighbor;
-out vec3 ex_DeltaCs;
+out vec4 ex_DeltaCs;
 out float ex_Type;
 
 uniform mat4  viewMatrix;
@@ -36,18 +36,18 @@ void main(void){
   EmitVertex();
   
   gl_Position = particlePos+rightVector - upVector;
-  gl_Position.x += 0.5;
+  gl_Position.x += 0.1;
   ex_TexCoor = vec2(1,0);
   EmitVertex();
   
   gl_Position = particlePos-rightVector + upVector;
-  gl_Position.y += 0.5;
+  gl_Position.y += 0.1;
   ex_TexCoor = vec2(0,1);
   EmitVertex();
   
   gl_Position = particlePos+rightVector + upVector;
-  gl_Position.y += 0.5;
-  gl_Position.x += 0.5;
+  gl_Position.y += 0.1;
+  gl_Position.x += 0.1;
   ex_TexCoor = vec2(1,1);
   EmitVertex();
 }

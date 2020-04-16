@@ -20,7 +20,7 @@ void initParticles(GLuint &ssb, GLuint pNumber, int r, bool* voxels) {
 		glm::vec3 pos = getPositionInVoxel(x, y, z);
 		p[i].currPos = glm::vec4(pos, 1.f);
 		p[i].prevPos = glm::vec4(pos, 1.f);
-		p[i].vel = glm::vec4(0);
+		p[i].vel = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
 		p[i].acc = glm::vec4(0);
 		p[i].para = glm::vec4(0);
 
@@ -29,10 +29,10 @@ void initParticles(GLuint &ssb, GLuint pNumber, int r, bool* voxels) {
 	}
 	
 	for (int i = vNumber; i < vNumber + pNumber; i++) {
-		glm::vec3 pos = glm::vec3(float(rand()) / RAND_MAX * 2 * r - r, float(rand()) / RAND_MAX * 2 * r + r, float(rand()) / RAND_MAX * 2 * r - r);
+		glm::vec3 pos = glm::vec3(float(rand()) / RAND_MAX * 2 * r - r, float(rand()) / RAND_MAX * 2 * r - r, float(rand()) / RAND_MAX * 2 * r + r);
 		p[i].currPos = glm::vec4(pos, 1.f);
 		p[i].prevPos = glm::vec4(pos, 1.f);
-		p[i].vel = glm::vec4(0);
+		p[i].vel = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
 		p[i].acc = glm::vec4(0);
 		p[i].para = glm::vec4(0);
 		p[i].matProp[0] = 1.0f;

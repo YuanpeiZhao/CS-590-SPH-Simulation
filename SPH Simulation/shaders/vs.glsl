@@ -6,13 +6,13 @@ layout(location=2) in vec4 dCs;
 layout(location=3) in float particleType;
 
 out float vNeighbor;
-out vec3 vDeltaCs;
+out vec4 vDeltaCs;
 out float vType;
 
 void main(void){
 	vType = particleType;
 	vNeighbor = nCount;
-	vDeltaCs = dCs.xyz;
+	vDeltaCs = dCs;
 	gl_Position = currentPos;
-	//gl_PointSize = 40.0f;
+	//gl_PointSize = 4.0f;
 }

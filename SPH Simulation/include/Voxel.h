@@ -13,9 +13,9 @@
 using namespace std;
 using namespace glm;
 
-const int voxelDimensionX = 10;
-const int voxelDimensionY = 10;
-const int voxelDimensionZ = 10;
+const int voxelDimensionX = 64;
+const int voxelDimensionY = 64;
+const int voxelDimensionZ = 64;
 const glm::vec3 voxelLowerBound = glm::vec3(-2.0f, -2.0f, -2.0f);
 const glm::vec3 voxelUpperBound = glm::vec3( 2.0f,  2.0f,  2.0f);
 
