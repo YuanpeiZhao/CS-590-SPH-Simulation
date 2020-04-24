@@ -9,6 +9,7 @@
 #define SMOOTHING_LENGTH (24 * PARTICLE_RADIUS)
 #define PARTICLE_VISCOSITY 250.f
 #define GRAVITY_FORCE rotated(vec3(0, 0, -5), -angle)
+#define DIRT_GRAVITY_FORCE rotated(vec3(0, -100, 0), -angle)
 #define PARTICLE_STIFFNESS 200
 #define WALL_DAMPING 0.8f
 
@@ -141,19 +142,19 @@ void main(){
 	{
 		if(i < maxVoxels){
 			
-			p[i].deltaCs.xyz = normal(convertIndex1DToIndex3D(int(i)));
 			vec4 tmp = imageLoad(voxelData, int(i));
-			if(tmp.z >= 0.1f) p[i].deltaCs.z = 1.0f;
-			else p[i].deltaCs.z = 0.0f;
+			if(tmp.x < 0.1f) return;
 
-			if(countNeighbor(int(i))<=6) p[i].matProp[0] = -1.0f;
+			p[i].deltaCs.xyz = normal(convertIndex1DToIndex3D(int(i)));
+
+			if(countNeighbor(int(i))<=8) p[i].matProp[0] = -1.0f;
 
 			imageStore(voxelData, int(i), vec4(p[i].matProp[0]+1.0f, tmp.y, 0.0f, tmp.w));
 		}
 		return;
 	}
 
-	if(p[i].matProp[0] <= 0.01f) return;
+	if(p[i].matProp[0] <= 0.1f) return;
     
 	// compute density and pressure per particle
     if(pass == 1)
@@ -208,7 +209,10 @@ void main(){
 		}
 		viscosity_force *= PARTICLE_VISCOSITY;
 
-		p[i].acceleration = vec4((pressure_force / p[i].pamameters[0] + viscosity_force / p[i].pamameters[0] + GRAVITY_FORCE), 1.0f);
+		float hasDirt = 0.0f;
+		if(p[i].matProp[0] < 0.6f) hasDirt = 1.0f;
+
+		p[i].acceleration = vec4((pressure_force / p[i].pamameters[0] + viscosity_force / p[i].pamameters[0] + GRAVITY_FORCE + hasDirt * DIRT_GRAVITY_FORCE), 1.0f);
 
 		p[i].deltaCs = vec4(normalize(dCs), 1.0f);
 	} 
@@ -248,6 +252,7 @@ void main(){
 		{
 			r_pos.z = 10;
 			r_vel = vec3(0.0f, 0.0f, -2.0f);
+			p[i].matProp[0] = 1.0f;
 		}
 		else if (r_pos.z > 10)
 		{
@@ -271,9 +276,23 @@ void main(){
 				p[i].velocity.xyz = length(p[i].velocity.xyz) * reflect(normalize(p[i].velocity.xyz), norm);
 				p[i].currPos.xyz += frameTimeDiff * p[i].velocity.xyz;
 
+				// if the wind particle is carrying a material, stick the material to the surface and free the wind particle
+				if(p[i].matProp[0] < 0.6f){
+					
+					p[i].matProp[0] = 1.0f;
+					int prevIndex = convertPositionToIndex1D(p[i].prevPos.xyz);
+					p[prevIndex].matProp[0] = 0.0f;
+					imageStore(voxelData, prevIndex, vec4(1.0f, 1.0f, 0.0f, 0.0f));
+					return;
+				}
+
+				p[i].matProp[0] = 0.5f;
 				tmp.z = 1.0f;
-				if(length(p[i].velocity.xyz) >= 2.0f) tmp.y -= length(p[i].velocity.xyz)/ 5.0f;
-				if(tmp.y <= 0.0f) p[index].matProp[0] = -1.0f;
+				if(length(p[i].velocity.xyz) >= 2.0f) tmp.y -= length(p[i].velocity.xyz)/ 20.0f;
+				if(tmp.y <= 0.0f) 
+				{
+					p[index].matProp[0] = -1.0f;
+				}
 
 				imageStore(voxelData, index, tmp);
 			}

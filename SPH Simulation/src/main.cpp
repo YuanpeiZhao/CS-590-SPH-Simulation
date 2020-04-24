@@ -33,8 +33,8 @@ void inputCallback(GLFWwindow* window);
 void drawDepthMap(double time);
 void postProcessing();
 
-int windowWidth = 1280;
-int windowHeight = 720;
+int windowWidth = 3840;
+int windowHeight = 2160;
 
 GLuint voxelNumber = voxelDimensionX * voxelDimensionY * voxelDimensionZ;
 GLuint particleNumber = 20000;
@@ -123,7 +123,8 @@ void initOpenGL() {
 	std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
 	// Write default voxel data to file
-	writeSphereToFile();
+	//writeSphereToFile();
+	writeTerrainToFile();
 
 	// Initialize particles
 
